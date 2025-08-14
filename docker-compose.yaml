@@ -18,3 +18,23 @@ services:
     profiles:
       - full
       - infrastructure
+      - without_bot
+
+  redis:
+    image: redis:7.0
+    ports:
+      - 6379:6379
+    profiles:
+      - full
+      - infrastructure
+      - without_bot
+
+  service-qr:
+    build:
+      context: ./service-qr
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    profiles:
+      - full
+      - without_bot

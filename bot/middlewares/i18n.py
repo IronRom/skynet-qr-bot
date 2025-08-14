@@ -17,8 +17,6 @@ class TranslatorRunnerMiddleware(BaseMiddleware):
     ) -> Any:
 
         user: User = data.get('event_from_user')
-
-        print('From middlware i18n, user var: ', user)
         
         if user is None:
             return await handler(event, data)

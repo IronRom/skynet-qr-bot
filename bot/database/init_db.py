@@ -7,7 +7,8 @@ async def create_engine_and_session(config: Config):
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     return engine, session_factory
 
-async def init_db(engine):
+async def init_db(engine, config: Config):
     async with engine.begin() as connection:
         await connection.run_sync(models.Base.metadata.drop_all)
         await connection.run_sync(models.Base.metadata.create_all)
+
