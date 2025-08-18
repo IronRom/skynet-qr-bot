@@ -192,6 +192,32 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
+resource "aws_iam_policy" "ecs_task_secrets" {
+  name = "EcsTaskSecretsPolicy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.bot_token.arn,
+          aws_secretsmanager_secret.db_dsn.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_secrets_attach" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = aws_iam_policy.ecs_task_secrets.arn
+}
+
 resource "aws_secretsmanager_secret" "bot_token" {
   name = "skynet-bot-token"
 }
