@@ -1,48 +1,41 @@
 provider "aws" {
-  region = "eu-central-1"
 }
 
-# === ECR ===
-resource "aws_ecr_repository" "skynet_qr_bot" {
-  name                 = "skynet-qr-bot"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
+resource "aws_ecr_repository" "skynet-qr-bot" {
+    name = "skynet-qr-bot"
+    image_tag_mutability = "MUTABLE"
+    image_scanning_configuration {
+      scan_on_push = true
+    }
 }
 
-# === S3 Bucket for Terraform state ===
-resource "aws_s3_bucket" "skynet_terraform_state" {
+resource "aws_s3_bucket" "skynet-qr-bot-terraform-state" {
   bucket = "skynet-qr-bot-terraform-state"
 }
 
-resource "aws_s3_bucket_versioning" "skynet_terraform_state_versioning" {
-  bucket = aws_s3_bucket.skynet_terraform_state.id
-
+resource "aws_s3_bucket_versioning" "skynet-qr-bot-terraform-state" {
+  bucket = aws_s3_bucket.skynet-qr-bot-terraform-state.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-# === DynamoDB Table for state locking ===
 resource "aws_dynamodb_table" "terraform_lock" {
   name         = "terraform-lock"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
-
   attribute {
     name = "LockID"
     type = "S"
   }
 }
 
-# === ECS Cluster ===
 resource "aws_ecs_cluster" "skynet_qr_bot" {
   name = "skynet-qr-bot-cluster"
 }
 
-# === VPC / Networking ===
+# Network
+
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -83,7 +76,11 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-resource "aws_eip" "nat" {}
+resource "aws_eip" "nat" {
+  tags = {
+    Name = "skynet-nat-eip"
+  }
+}
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
@@ -130,7 +127,8 @@ resource "aws_route_table_association" "private_assoc" {
   route_table_id = aws_route_table.private.id
 }
 
-# === Security Group for ECS tasks ===
+## Rule for outbound traffic
+
 resource "aws_security_group" "ecs_tasks" {
   name        = "skynet-ecs-tasks"
   description = "Security group for ECS tasks"
@@ -143,6 +141,7 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Входящий трафик закрыт (по умолчанию)
   ingress {
     from_port   = 0
     to_port     = 0
@@ -155,9 +154,9 @@ resource "aws_security_group" "ecs_tasks" {
   }
 }
 
-# === IAM Roles ===
+# Task difination for ECS
 
-# Execution role (для pull из ECR, CloudWatch)
+## 
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
 
@@ -178,7 +177,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Task role (для доступа к секретам)
 resource "aws_iam_role" "ecs_task" {
   name = "ecsTaskRole"
 
@@ -194,29 +192,6 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
-resource "aws_iam_policy" "ecs_task_secrets_policy" {
-  name        = "ecsTaskSecretsPolicy"
-  description = "Allow ECS tasks to read bot token from Secrets Manager"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:eu-central-1:023952094095:secret:skynet-bot-token-*"
-      }
-    ]
-  })
-}
-
-# Прикрепляем политику к task role
-resource "aws_iam_role_policy_attachment" "ecs_task_attach_secrets_policy" {
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = aws_iam_policy.ecs_task_secrets_policy.arn
-}
-
-# === Secrets Manager ===
 resource "aws_secretsmanager_secret" "bot_token" {
   name = "skynet-bot-token"
 }
@@ -235,7 +210,6 @@ resource "aws_secretsmanager_secret_version" "db_dsn_version" {
   secret_string = var.db_dsn
 }
 
-# === ECS Task Definition ===
 resource "aws_ecs_task_definition" "skynet_qr_bot" {
   family                   = "skynet-qr-bot-task"
   network_mode             = "awsvpc"
@@ -246,7 +220,7 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   container_definitions = jsonencode([
   {
     name  = "skynet-qr-bot"
-    image = "${aws_ecr_repository.skynet_qr_bot.repository_url}:latest"
+    image = "${aws_ecr_repository.skynet-qr-bot.repository_url}:latest"
     essential = true
 
     secrets = [
@@ -260,7 +234,6 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   task_role_arn      = aws_iam_role.ecs_task.arn
 }
 
-# === ECS Service ===
 resource "aws_ecs_service" "skynet_qr_bot_service" {
   name            = "skynet-qr-bot-service"
   cluster         = aws_ecs_cluster.skynet_qr_bot.id
