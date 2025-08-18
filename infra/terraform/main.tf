@@ -1,20 +1,28 @@
 provider "aws" {
+  region = "eu-central-1"
 }
 
-resource "aws_ecr_repository" "skynet-qr-bot" {
-    name = "skynet-qr-bot"
-    image_tag_mutability = "MUTABLE"
-    image_scanning_configuration {
-      scan_on_push = true
-    }
+# ----------------------------
+# ECR
+# ----------------------------
+resource "aws_ecr_repository" "skynet_qr_bot" {
+  name                 = "skynet-qr-bot"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
-resource "aws_s3_bucket" "skynet-qr-bot-terraform-state" {
+# ----------------------------
+# S3 + DynamoDB для Terraform state
+# ----------------------------
+resource "aws_s3_bucket" "skynet_terraform_state" {
   bucket = "skynet-qr-bot-terraform-state"
 }
 
-resource "aws_s3_bucket_versioning" "skynet-qr-bot-terraform-state" {
-  bucket = aws_s3_bucket.skynet-qr-bot-terraform-state.id
+resource "aws_s3_bucket_versioning" "skynet_terraform_state_versioning" {
+  bucket = aws_s3_bucket.skynet_terraform_state.id
   versioning_configuration {
     status = "Enabled"
   }
@@ -30,20 +38,15 @@ resource "aws_dynamodb_table" "terraform_lock" {
   }
 }
 
-resource "aws_ecs_cluster" "skynet_qr_bot" {
-  name = "skynet-qr-bot-cluster"
-}
-
-# Network
-
+# ----------------------------
+# VPC / Network
+# ----------------------------
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = {
-    Name = "skynet-vpc"
-  }
+  tags = { Name = "skynet-vpc" }
 }
 
 resource "aws_subnet" "public" {
@@ -52,56 +55,40 @@ resource "aws_subnet" "public" {
   availability_zone       = "eu-central-1a"
   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "skynet-public-subnet"
-  }
+  tags = { Name = "skynet-public-subnet" }
 }
 
 resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "eu-central-1a"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "eu-central-1a"
   map_public_ip_on_launch = false
 
-  tags = {
-    Name = "skynet-private-subnet"
-  }
+  tags = { Name = "skynet-private-subnet" }
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "skynet-igw"
-  }
+  tags   = { Name = "skynet-igw" }
 }
 
 resource "aws_eip" "nat" {
-  tags = {
-    Name = "skynet-nat-eip"
-  }
+  tags = { Name = "skynet-nat-eip" }
 }
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public.id
-
-  tags = {
-    Name = "skynet-nat"
-  }
+  tags          = { Name = "skynet-nat" }
 }
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-
-  tags = {
-    Name = "skynet-public-rt"
-  }
+  tags = { Name = "skynet-public-rt" }
 }
 
 resource "aws_route_table_association" "public_assoc" {
@@ -111,23 +98,17 @@ resource "aws_route_table_association" "public_assoc" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-
   route {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.nat.id
   }
-
-  tags = {
-    Name = "skynet-private-rt"
-  }
+  tags = { Name = "skynet-private-rt" }
 }
 
 resource "aws_route_table_association" "private_assoc" {
   subnet_id      = aws_subnet.private.id
   route_table_id = aws_route_table.private.id
 }
-
-## Rule for outbound traffic
 
 resource "aws_security_group" "ecs_tasks" {
   name        = "skynet-ecs-tasks"
@@ -141,7 +122,6 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Входящий трафик закрыт (по умолчанию)
   ingress {
     from_port   = 0
     to_port     = 0
@@ -149,24 +129,27 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = []
   }
 
-  tags = {
-    Name = "skynet-ecs-tasks"
-  }
+  tags = { Name = "skynet-ecs-tasks" }
 }
 
-# Task difination for ECS
+# ----------------------------
+# ECS Cluster
+# ----------------------------
+resource "aws_ecs_cluster" "skynet_qr_bot" {
+  name = "skynet-qr-bot-cluster"
+}
 
-## 
+# ----------------------------
+# IAM Roles
+# ----------------------------
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
+      Effect = "Allow",
+      Principal = { Service = "ecs-tasks.amazonaws.com" },
       Action = "sts:AssumeRole"
     }]
   })
@@ -177,21 +160,45 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Добавляем политику для доступа к секретам
+resource "aws_iam_policy" "ecs_task_secrets_access" {
+  name        = "ecs-task-secrets-access"
+  description = "Allow ECS task to read Secrets Manager secrets"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["secretsmanager:GetSecretValue"],
+        Resource = ["*"] # можно ограничить конкретными секретами
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy_attachment" "ecs_task_secrets_attach" {
+  name       = "ecs-task-secrets-attach"
+  policy_arn = aws_iam_policy.ecs_task_secrets_access.arn
+  roles      = [aws_iam_role.ecs_task_execution.name]
+}
+
 resource "aws_iam_role" "ecs_task" {
   name = "ecsTaskRole"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
+      Effect = "Allow",
+      Principal = { Service = "ecs-tasks.amazonaws.com" },
       Action = "sts:AssumeRole"
     }]
   })
 }
 
+# ----------------------------
+# Secrets Manager
+# ----------------------------
 resource "aws_secretsmanager_secret" "bot_token" {
   name = "skynet-bot-token"
 }
@@ -210,6 +217,9 @@ resource "aws_secretsmanager_secret_version" "db_dsn_version" {
   secret_string = var.db_dsn
 }
 
+# ----------------------------
+# ECS Task Definition
+# ----------------------------
 resource "aws_ecs_task_definition" "skynet_qr_bot" {
   family                   = "skynet-qr-bot-task"
   network_mode             = "awsvpc"
@@ -218,22 +228,24 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   memory                   = "512"
 
   container_definitions = jsonencode([
-  {
-    name  = "skynet-qr-bot"
-    image = "${aws_ecr_repository.skynet-qr-bot.repository_url}:latest"
-    essential = true
-
-    secrets = [
-      { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
-      { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
-    ]
-  }
-])
+    {
+      name      = "skynet-qr-bot"
+      image     = "${aws_ecr_repository.skynet_qr_bot.repository_url}:latest"
+      essential = true
+      secrets = [
+        { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
+        { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
+      ]
+    }
+  ])
 
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
   task_role_arn      = aws_iam_role.ecs_task.arn
 }
 
+# ----------------------------
+# ECS Service
+# ----------------------------
 resource "aws_ecs_service" "skynet_qr_bot_service" {
   name            = "skynet-qr-bot-service"
   cluster         = aws_ecs_cluster.skynet_qr_bot.id
@@ -242,8 +254,8 @@ resource "aws_ecs_service" "skynet_qr_bot_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.private.id]
-    security_groups = [aws_security_group.ecs_tasks.id]
+    subnets          = [aws_subnet.private.id]
+    security_groups  = [aws_security_group.ecs_tasks.id]
     assign_public_ip = false
   }
 }
