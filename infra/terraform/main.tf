@@ -1,7 +1,4 @@
 provider "aws" {
-    region      = var.aws_region
-    access_key  = var.aws_access_key
-    secret_key  = var.aws_secret_key
 }
 
 resource "aws_ecr_repository" "skynet-qr-bot" {
@@ -158,6 +155,8 @@ resource "aws_security_group" "ecs_tasks" {
 }
 
 # Task difination for ECS
+
+## 
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
 
@@ -219,35 +218,17 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   memory                   = "256"
 
   container_definitions = jsonencode([
-    {
-      name      = "skynet-qr-bot"
-      image     = "${aws_ecr_repository.skynet-qr-bot.repository_url}:latest"
-      essential = true
+  {
+    name  = "skynet-qr-bot"
+    image = "${aws_ecr_repository.skynet-qr-bot.repository_url}:latest"
+    essential = true
 
-      environment = [
-        { name = "BOT_TOKEN",       value = var.bot_token },
-        { name = "OWNER_IDS",       value = var.owner_ids },
-        { name = "USE_REDIS",       value = var.use_redis },
-        { name = "REDIS_HOST",      value = var.redis_host },
-        { name = "SERVICE_QR_URL",  value = var.service_qr_url },
-        { name = "DB_DSN",          value = var.db_dsn }
-      ]
-
-      secrets = [
-        { name = "BOT_TOKEN",   valueFrom = aws_secretsmanager_secret.bot_token.arn },
-        { name = "DB_DSN",      valueFrom = aws_secretsmanager_secret.db_dsn.arn }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/skynet-qr-bot"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
-    }
-  ])
+    secrets = [
+      { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
+      { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
+    ]
+  }
+])
 
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
   task_role_arn      = aws_iam_role.ecs_task.arn
