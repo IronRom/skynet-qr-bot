@@ -233,3 +233,17 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
   task_role_arn      = aws_iam_role.ecs_task.arn
 }
+
+resource "aws_ecs_service" "skynet_qr_bot_service" {
+  name            = "skynet-qr-bot-service"
+  cluster         = aws_ecs_cluster.skynet_qr_bot.id
+  task_definition = aws_ecs_task_definition.skynet_qr_bot.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.private.id]
+    security_groups = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = false
+  }
+}
