@@ -15,7 +15,7 @@ variable "owner_ids" {
 variable "use_redis" {
   description = "Use Redis"
   type        = string
-  default     = "True"
+  default     = "False"
 }
 
 variable "redis_host" {
@@ -27,7 +27,6 @@ variable "redis_host" {
 variable "service_qr_url" {
   description = "Service QR URL"
   type        = string
-  default     = "http://127.0.0.1:8001"
 }
 
 variable "db_dsn" {
