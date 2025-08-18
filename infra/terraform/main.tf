@@ -214,8 +214,8 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
   family                   = "skynet-qr-bot-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "128"
-  memory                   = "256"
+  cpu                      = "256"
+  memory                   = "512"
 
   container_definitions = jsonencode([
   {
