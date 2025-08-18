@@ -15,7 +15,7 @@ variable "owner_ids" {
 variable "use_redis" {
   description = "Use Redis"
   type        = string
-  default     = "True"
+  default     = "False"
 }
 
 variable "redis_host" {
