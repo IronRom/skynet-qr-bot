@@ -262,6 +262,11 @@ resource "aws_secretsmanager_secret_version" "db_dsn_version" {
   secret_string = var.db_dsn
 }
 
+resource "aws_cloudwatch_log_group" "skynet_qr_bot" {
+  name              = "/ecs/skynet-qr-bot"
+  retention_in_days = 14
+}
+
 resource "aws_ecs_task_definition" "skynet_qr_bot" {
   family                   = "skynet-qr-bot-task"
   network_mode             = "awsvpc"
