@@ -1,8 +1,10 @@
 services:
-  bot:
+  bots:
     build:
       context: .
       dockerfile: bot/Dockerfile
+    env_file:
+      - .env
     command: ["poetry", "run", "python", "app.py"]
     profiles:
       - full
