@@ -186,7 +186,8 @@ resource "aws_iam_policy" "ecs_execution_secrets" {
         ]
         Resource = [
           aws_secretsmanager_secret.bot_token.arn,
-          aws_secretsmanager_secret.db_dsn.arn
+          aws_secretsmanager_secret.db_dsn.arn,
+          aws_secretsmanager_secret.owner_ids.arn
         ]
       }
     ]
@@ -232,7 +233,8 @@ resource "aws_iam_policy" "ecs_task_secrets" {
         ]
         Resource = [
           aws_secretsmanager_secret.bot_token.arn,
-          aws_secretsmanager_secret.db_dsn.arn
+          aws_secretsmanager_secret.db_dsn.arn,
+          aws_secretsmanager_secret.owner_ids.arn
         ]
       }
     ]
