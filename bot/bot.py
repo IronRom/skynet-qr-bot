@@ -26,7 +26,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
 from redis.asyncio import Redis
 
-### comment for commit
+#### comment for commit
 async def main(
         config: Config,
         session_factory: async_sessionmaker
