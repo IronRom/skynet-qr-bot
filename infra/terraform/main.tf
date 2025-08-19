@@ -279,6 +279,15 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
       { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
       { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
     ]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/skynet-qr-bot"
+        "awslogs-region"        = "eu-central-1"
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
   }
 ])
 
@@ -299,27 +308,3 @@ resource "aws_ecs_service" "skynet_qr_bot_service" {
     assign_public_ip = false
   }
 }
-
-# Logs
-
-container_definitions = jsonencode([
-  {
-    name      = "skynet-qr-bot"
-    image     = "${aws_ecr_repository.skynet-qr-bot.repository_url}:latest"
-    essential = true
-
-    secrets = [
-      { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
-      { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
-    ]
-
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = "/ecs/skynet-qr-bot"
-        "awslogs-region"        = "eu-central-1"
-        "awslogs-stream-prefix" = "ecs"
-      }
-    }
-  }
-])
