@@ -257,6 +257,15 @@ resource "aws_secretsmanager_secret" "db_dsn" {
   name = "skynet-db-dsn"
 }
 
+resource "aws_secretsmanager_secret" "owner_ids" {
+  name = "skynet-owner-ids"
+}
+
+resource "aws_secretsmanager_secret_version" "owner_ids_version" {
+  secret_id     = aws_secretsmanager_secret.owner_ids.id
+  secret_string = var.owner_ids
+}
+
 resource "aws_secretsmanager_secret_version" "db_dsn_version" {
   secret_id     = aws_secretsmanager_secret.db_dsn.id
   secret_string = var.db_dsn
@@ -281,8 +290,9 @@ resource "aws_ecs_task_definition" "skynet_qr_bot" {
     essential = true
 
     secrets = [
-      { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
-      { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn }
+      { name = "BOT_TOKEN",  valueFrom = aws_secretsmanager_secret_version.bot_token_version.arn },
+      { name = "DB_DSN",     valueFrom = aws_secretsmanager_secret_version.db_dsn_version.arn },
+      { name = "OWNER_IDS",  valueFrom = aws_secretsmanager_secret_version.owner_ids_version.arn }
     ]
 
     logConfiguration = {
