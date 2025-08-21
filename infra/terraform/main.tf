@@ -3,6 +3,45 @@ provider "aws" {
 }
 
 ##########################
+# SECRETS
+###########################
+resource "aws_secretsmanager_secret" "bot_token" {
+  name = "bot_token"
+}
+
+resource "aws_secretsmanager_secret_version" "bot_token_version" {
+  secret_id     = aws_secretsmanager_secret.bot_token.id
+  secret_string = var.bot_token
+}
+
+resource "aws_secretsmanager_secret" "db_dsn" {
+  name = "db_dsn"
+}
+
+resource "aws_secretsmanager_secret_version" "db_dsn_version" {
+  secret_id     = aws_secretsmanager_secret.db_dsn.id
+  secret_string = var.db_dsn
+}
+
+resource "aws_secretsmanager_secret" "owner_ids" {
+  name = "owner_ids"
+}
+
+resource "aws_secretsmanager_secret_version" "owner_ids_version" {
+  secret_id     = aws_secretsmanager_secret.owner_ids.id
+  secret_string = var.owner_ids
+}
+
+resource "aws_secretsmanager_secret" "service_qr_url" {
+  name = "service_qr_url"
+}
+
+resource "aws_secretsmanager_secret_version" "service_qr_url_version" {
+  secret_id     = aws_secretsmanager_secret.service_qr_url.id
+  secret_string = var.service_qr_url
+}
+
+##########################
 # ECR Repositories
 ##########################
 resource "aws_ecr_repository" "skynet_bot" {
@@ -22,7 +61,7 @@ resource "aws_ecr_repository" "skynet_qr" {
 }
 
 ##########################
-# VPC, Subnets, IGW, NAT
+# VPC, Subnets, IGW
 ##########################
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
@@ -52,13 +91,8 @@ resource "aws_internet_gateway" "igw" {
   tags = { Name = "skynet-igw" }
 }
 
-resource "aws_eip" "bot_nat" {
+resource "aws_eip" "bot_eip" {
   vpc = true
-}
-
-resource "aws_nat_gateway" "bot_nat" {
-  allocation_id = aws_eip.bot_nat.id
-  subnet_id     = aws_subnet.public.id
 }
 
 ##########################
@@ -80,10 +114,7 @@ resource "aws_route_table_association" "public_assoc" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.bot_nat.id
-  }
+  # Приватная подсеть пока без NAT
   tags = { Name = "skynet-private-rt" }
 }
 
