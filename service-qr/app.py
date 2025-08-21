@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Response
 import qrcode
 import io
-
+#
 app = FastAPI()
 
 @app.get("/generate")
