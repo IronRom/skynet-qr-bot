@@ -29,3 +29,7 @@ variable "db_dsn" {
   description = "Database DSN"
   type        = string
 }
+
+variable "db_user" {}
+variable "db_password" {}
+variable "db_name" {}
