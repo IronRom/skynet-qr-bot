@@ -13,9 +13,9 @@ resource "aws_ecr_repository" "skynet-qr-bot" {
   }
 }
 
-#########################
+##########################
 # S3 Bucket for Terraform state
-#########################
+##########################
 resource "aws_s3_bucket" "skynet_terraform_state" {
   bucket = "skynet-qr-bot-terraform-state"
 }
