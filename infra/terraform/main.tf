@@ -86,6 +86,19 @@ resource "aws_subnet" "private" {
   tags = { Name = "skynet-private-subnet" }
 }
 
+resource "aws_subnet" "private_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "eu-central-1b"
+  map_public_ip_on_launch = false
+  tags = { Name = "skynet-private-subnet-b" }
+}
+
+resource "aws_route_table_association" "private_b_assoc" {
+  subnet_id      = aws_subnet.private_b.id
+  route_table_id = aws_route_table.private.id
+}
+
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
   tags = { Name = "skynet-igw" }
@@ -260,7 +273,10 @@ resource "aws_vpc_endpoint" "cloudwatch_logs" {
 ##########################
 resource "aws_db_subnet_group" "skynet" {
   name       = "skynet-db-subnet-group"
-  subnet_ids = [aws_subnet.private.id]
+  subnet_ids = [
+    aws_subnet.private.id,
+    aws_subnet.private_b.id
+  ]
 
   tags = { Name = "skynet-db-subnet-group" }
 }
