@@ -119,9 +119,9 @@ resource "aws_route_table_association" "private_assoc" {
   route_table_id = aws_route_table.private.id
 }
 
-###########################
+##########################
 # Security Groups
-###########################
+##########################
 resource "aws_security_group" "ecs_tasks_public" {
   name   = "skynet-ecs-public"
   vpc_id = aws_vpc.main.id
