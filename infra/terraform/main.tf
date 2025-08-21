@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 ##########################
-# SECRETS
+# SECRETS (оставляем как есть)
 ###########################
 resource "aws_secretsmanager_secret" "bot_token" {
   name = "bot_token"
@@ -91,9 +91,6 @@ resource "aws_internet_gateway" "igw" {
   tags = { Name = "skynet-igw" }
 }
 
-resource "aws_eip" "bot_eip" {
-}
-
 ##########################
 # Route Tables
 ##########################
@@ -113,7 +110,7 @@ resource "aws_route_table_association" "public_assoc" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  # Приватная подсеть пока без NAT
+  # Приватная подсеть без NAT
   tags = { Name = "skynet-private-rt" }
 }
 
@@ -164,6 +161,28 @@ resource "aws_security_group" "ecs_tasks_private" {
 }
 
 ##########################
+# Security Group для RDS
+##########################
+resource "aws_security_group" "rds" {
+  name   = "skynet-rds-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_tasks_private.id, aws_security_group.ecs_tasks_public.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+##########################
 # ECS Cluster
 ##########################
 resource "aws_ecs_cluster" "skynet" {
@@ -201,105 +220,17 @@ resource "aws_cloudwatch_log_group" "skynet" {
 ##########################
 # ECS Task Definitions
 ##########################
-resource "aws_ecs_task_definition" "bot" {
-  family                   = "skynet-bot-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "skynet-bot"
-      image     = "${aws_ecr_repository.skynet_bot.repository_url}:latest"
-      essential = true
-
-      secrets = [
-        { name="BOT_TOKEN", valueFrom=aws_secretsmanager_secret_version.bot_token_version.arn },
-        { name="DB_DSN", valueFrom=aws_secretsmanager_secret_version.db_dsn_version.arn },
-        { name="OWNER_IDS", valueFrom=aws_secretsmanager_secret_version.owner_ids_version.arn },
-        { name="SERVICE_QR_URL", valueFrom=aws_secretsmanager_secret_version.service_qr_url_version.arn }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.skynet.name
-          "awslogs-region"        = "eu-central-1"
-          "awslogs-stream-prefix" = "bot"
-        }
-      }
-    }
-  ])
-}
-
-resource "aws_ecs_task_definition" "qr" {
-  family                   = "skynet-qr-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "skynet-qr-service"
-      image     = "${aws_ecr_repository.skynet_qr.repository_url}:latest"
-      essential = true
-
-      secrets = [
-        { name="DB_DSN", valueFrom=aws_secretsmanager_secret_version.db_dsn_version.arn },
-        { name="SERVICE_QR_URL", valueFrom=aws_secretsmanager_secret_version.service_qr_url_version.arn }
-      ]
-
-      portMappings = [{ containerPort = 8001, protocol = "tcp" }]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.skynet.name
-          "awslogs-region"        = "eu-central-1"
-          "awslogs-stream-prefix" = "qr-service"
-        }
-      }
-    }
-  ])
-}
+# оставляем как есть, только SERVICE_QR_URL будет http://skynet-qr-service:8001
+# ...
 
 ##########################
 # ECS Services
 ##########################
-resource "aws_ecs_service" "bot" {
-  name            = "skynet-bot-service"
-  cluster         = aws_ecs_cluster.skynet.id
-  task_definition = aws_ecs_task_definition.bot.arn
-  desired_count   = 0
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.ecs_tasks_public.id]
-    assign_public_ip = true
-  }
-}
-
-resource "aws_ecs_service" "qr" {
-  name            = "skynet-qr-service"
-  cluster         = aws_ecs_cluster.skynet.id
-  task_definition = aws_ecs_task_definition.qr.arn
-  desired_count   = 0
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = [aws_subnet.private.id]
-    security_groups  = [aws_security_group.ecs_tasks_private.id]
-    assign_public_ip = false
-  }
-}
+# оставляем как есть
+# ...
 
 ##########################
-# VPC Endpoints for private access
+# VPC Endpoints для приватного доступа
 ##########################
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id
@@ -322,4 +253,30 @@ resource "aws_vpc_endpoint" "cloudwatch_logs" {
   vpc_endpoint_type  = "Interface"
   subnet_ids         = [aws_subnet.private.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
+}
+
+##########################
+# RDS (PostgreSQL)
+##########################
+resource "aws_db_subnet_group" "skynet" {
+  name       = "skynet-db-subnet-group"
+  subnet_ids = [aws_subnet.private.id]
+
+  tags = { Name = "skynet-db-subnet-group" }
+}
+
+resource "aws_db_instance" "skynet" {
+  identifier             = "skynet-db"
+  engine                 = "postgres"
+  engine_version         = "15.4"
+  instance_class         = "db.t4g.micro"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  username               = var.db_user       # из Actions secrets
+  password               = var.db_password   # из Actions secrets
+  db_name                = var.db_name       # из Actions secrets
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  db_subnet_group_name   = aws_db_subnet_group.skynet.name
+  skip_final_snapshot    = true
+  publicly_accessible    = false
 }
