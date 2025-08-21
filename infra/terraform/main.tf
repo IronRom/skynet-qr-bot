@@ -92,7 +92,6 @@ resource "aws_internet_gateway" "igw" {
 }
 
 resource "aws_eip" "bot_eip" {
-  vpc = true
 }
 
 ##########################
