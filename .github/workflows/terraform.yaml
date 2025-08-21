@@ -23,7 +23,9 @@ jobs:
       TF_VAR_db_dsn: ${{ secrets.DB_DSN }}
       TF_VAR_owner_ids: ${{ secrets.OWNER_IDS }}
       TF_VAR_service_qr_url: ${{ secrets.SERVICE_QR_URL }}
-
+      TF_DB_USER: ${{ secrets.DB_USER }}
+      TF_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      TF_DB_NAME: ${{ secrets.DB_NAME }}
     steps:
       - uses: actions/checkout@v3
 
