@@ -2,9 +2,9 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-#########################
+##########################
 # ECR Repository
-#########################
+##########################
 resource "aws_ecr_repository" "skynet-qr-bot" {
   name                 = "skynet-qr-bot"
   image_tag_mutability = "MUTABLE"
