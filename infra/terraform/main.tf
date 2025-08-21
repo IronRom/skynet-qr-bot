@@ -8,13 +8,17 @@ provider "aws" {
 resource "aws_ecr_repository" "skynet_bot" {
   name                 = "skynet-bot"
   image_tag_mutability = "MUTABLE"
-  image_scanning_configuration { scan_on_push = true }
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 resource "aws_ecr_repository" "skynet_qr" {
   name                 = "skynet-qr-service"
   image_tag_mutability = "MUTABLE"
-  image_scanning_configuration { scan_on_push = true }
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
 ##########################
@@ -92,17 +96,41 @@ resource "aws_route_table_association" "private_assoc" {
 # Security Groups
 ##########################
 resource "aws_security_group" "ecs_tasks_public" {
-  name        = "skynet-ecs-public"
-  vpc_id      = aws_vpc.main.id
-  egress { from_port=0, to_port=0, protocol="-1", cidr_blocks=["0.0.0.0/0"] }
-  ingress { from_port=0, to_port=0, protocol="-1", cidr_blocks=[] }
+  name   = "skynet-ecs-public"
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = []
+  }
 }
 
 resource "aws_security_group" "ecs_tasks_private" {
-  name        = "skynet-ecs-private"
-  vpc_id      = aws_vpc.main.id
-  egress { from_port=0, to_port=0, protocol="-1", cidr_blocks=["0.0.0.0/0"] }
-  ingress { from_port=0, to_port=0, protocol="-1", cidr_blocks=[] }
+  name   = "skynet-ecs-private"
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = []
+  }
 }
 
 ##########################
@@ -119,7 +147,11 @@ resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { Service = "ecs-tasks.amazonaws.com" }, Action = "sts:AssumeRole" }]
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
   })
 }
 
@@ -149,8 +181,8 @@ resource "aws_ecs_task_definition" "bot" {
 
   container_definitions = jsonencode([
     {
-      name  = "skynet-bot"
-      image = "${aws_ecr_repository.skynet_bot.repository_url}:latest"
+      name      = "skynet-bot"
+      image     = "${aws_ecr_repository.skynet_bot.repository_url}:latest"
       essential = true
 
       secrets = [
@@ -182,8 +214,8 @@ resource "aws_ecs_task_definition" "qr" {
 
   container_definitions = jsonencode([
     {
-      name  = "skynet-qr-service"
-      image = "${aws_ecr_repository.skynet_qr.repository_url}:latest"
+      name      = "skynet-qr-service"
+      image     = "${aws_ecr_repository.skynet_qr.repository_url}:latest"
       essential = true
 
       secrets = [
@@ -212,12 +244,12 @@ resource "aws_ecs_service" "bot" {
   name            = "skynet-bot-service"
   cluster         = aws_ecs_cluster.skynet.id
   task_definition = aws_ecs_task_definition.bot.arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.public.id]
-    security_groups = [aws_security_group.ecs_tasks_public.id]
+    subnets          = [aws_subnet.public.id]
+    security_groups  = [aws_security_group.ecs_tasks_public.id]
     assign_public_ip = true
   }
 }
@@ -226,12 +258,12 @@ resource "aws_ecs_service" "qr" {
   name            = "skynet-qr-service"
   cluster         = aws_ecs_cluster.skynet.id
   task_definition = aws_ecs_task_definition.qr.arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.private.id]
-    security_groups = [aws_security_group.ecs_tasks_private.id]
+    subnets          = [aws_subnet.private.id]
+    security_groups  = [aws_security_group.ecs_tasks_private.id]
     assign_public_ip = false
   }
 }
@@ -247,17 +279,17 @@ resource "aws_vpc_endpoint" "s3" {
 }
 
 resource "aws_vpc_endpoint" "secretsmanager" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.eu-central-1.secretsmanager"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.private.id]
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.eu-central-1.secretsmanager"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [aws_subnet.private.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
 }
 
 resource "aws_vpc_endpoint" "cloudwatch_logs" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.eu-central-1.logs"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.private.id]
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.eu-central-1.logs"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [aws_subnet.private.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
 }

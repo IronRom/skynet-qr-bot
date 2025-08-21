@@ -1,0 +1,55 @@
+name: QR Service CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'service-qr/**'
+  pull_request:
+    branches:
+      - main
+      - 'service-qr/**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image
+        run: |
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/skynet-qr-service:latest
+          docker build -t $IMAGE_URI ./service-qr
+          docker push $IMAGE_URI
+
+      - name: Update ECS service
+        run: |
+          CLUSTER_NAME="skynet-qr-bot-cluster"
+          SERVICE_NAME="skynet-qr-bot-service"
+          TASK_DEF_ARN=$(aws ecs describe-task-definition --task-definition skynet-qr-bot-task | jq -r '.taskDefinition.taskDefinitionArn')
+
+          # Create new task definition revision with updated image
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json "$(jq --arg IMAGE_URI "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/skynet-qr-service:latest" '.containerDefinitions[1].image=$IMAGE_URI' <<< $(aws ecs describe-task-definition --task-definition skynet-qr-bot-task | jq '.taskDefinition | { family, networkMode, containerDefinitions, requiresCompatibilities, cpu, memory, executionRoleArn }'))" )
+
+          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.taskDefinitionArn')
+
+          # Update ECS service to use new task definition
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN
