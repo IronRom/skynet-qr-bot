@@ -284,7 +284,7 @@ resource "aws_db_subnet_group" "skynet" {
 resource "aws_db_instance" "skynet" {
   identifier             = "skynet-db"
   engine                 = "postgres"
-  engine_version         = "15.4"
+  engine_version         = "15.11"
   instance_class         = "db.t4g.micro"
   allocated_storage      = 20
   storage_type           = "gp2"
