@@ -108,19 +108,19 @@ resource "aws_internet_gateway" "igw" {
 # VPC Endpoints для ECR
 ##########################
 resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.eu-central-1.ecr.api"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.private.id, aws_subnet.private.id]
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.eu-central-1.ecr.api"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
   private_dns_enabled = true
 }
 
 resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.eu-central-1.ecr.dkr"
-  vpc_endpoint_type = "Interface"
-  subnet_ids        = [aws_subnet.private.id, aws_subnet.private.id]
+  vpc_id             = aws_vpc.main.id
+  service_name       = "com.amazonaws.eu-central-1.ecr.dkr"
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
   private_dns_enabled = true
 }
@@ -129,7 +129,7 @@ resource "aws_vpc_endpoint" "sts" {
   vpc_id             = aws_vpc.main.id
   service_name       = "com.amazonaws.eu-central-1.sts"
   vpc_endpoint_type  = "Interface"
-  subnet_ids         = [aws_subnet.private.id, aws_subnet.private.id]
+  subnet_ids         = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
   private_dns_enabled = true
 }
@@ -249,7 +249,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_ecr" {
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage"
         ]
-        Resource = "${aws_ecr_repository.skynet_bot.arn}"
+        Resource = "*"
       },
       {
         Effect = "Allow"
@@ -259,7 +259,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_ecr" {
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage"
         ]
-        Resource = "${aws_ecr_repository.skynet_qr.arn}"
+        Resource = "*"
       }
     ]
   })
@@ -404,9 +404,9 @@ resource "aws_ecs_service" "skynet_qr" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = [aws_subnet.private.id, aws_subnet.private.id]
+    subnets          = [aws_subnet.private.id, aws_subnet.private_b.id]
     security_groups  = [aws_security_group.ecs_tasks_private.id]
-    assign_public_ip = true
+    assign_public_ip = false
   }
 
   deployment_minimum_healthy_percent = 50
@@ -427,7 +427,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_id             = aws_vpc.main.id
   service_name       = "com.amazonaws.eu-central-1.secretsmanager"
   vpc_endpoint_type  = "Interface"
-  subnet_ids         = [aws_subnet.private.id]
+  subnet_ids         = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
 }
 
@@ -435,7 +435,7 @@ resource "aws_vpc_endpoint" "cloudwatch_logs" {
   vpc_id             = aws_vpc.main.id
   service_name       = "com.amazonaws.eu-central-1.logs"
   vpc_endpoint_type  = "Interface"
-  subnet_ids         = [aws_subnet.private.id]
+  subnet_ids         = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
 }
 
