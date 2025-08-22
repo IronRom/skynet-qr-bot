@@ -123,7 +123,6 @@ resource "aws_route_table_association" "public_assoc" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  # Приватная подсеть без NAT
   tags = { Name = "skynet-private-rt" }
 }
 
@@ -166,10 +165,10 @@ resource "aws_security_group" "ecs_tasks_private" {
   }
 
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = []
+    from_port   = 8001
+    to_port     = 8001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -233,14 +232,102 @@ resource "aws_cloudwatch_log_group" "skynet" {
 ##########################
 # ECS Task Definitions
 ##########################
-# оставляем как есть, только SERVICE_QR_URL будет http://skynet-qr-service:8001
-# ...
+
+resource "aws_ecs_task_definition" "skynet_bot" {
+  family                   = "skynet-qr-bot-task"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([
+    {
+      name      = "skynet-qr-bot"
+      image     = "${aws_ecr_repository.skynet_bot.repository_url}:latest"
+      essential = true
+      environment = []
+      secrets = [
+        { name = "BOT_TOKEN", valueFrom = aws_secretsmanager_secret.bot_token.arn },
+        { name = "DB_DSN", valueFrom = aws_secretsmanager_secret.db_dsn.arn },
+        { name = "OWNER_IDS", valueFrom = aws_secretsmanager_secret.owner_ids.arn },
+        { name = "SERVICE_QR_URL", valueFrom = aws_secretsmanager_secret.service_qr_url.arn }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.skynet.name
+          awslogs-region        = "eu-central-1"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_task_definition" "skynet_qr" {
+  family                   = "skynet-qr-service-task"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([
+    {
+      name      = "skynet-qr-service"
+      image     = "${aws_ecr_repository.skynet_qr.repository_url}:latest"
+      essential = true
+      portMappings = [ { containerPort = 8001, protocol = "tcp" } ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.skynet.name
+          awslogs-region        = "eu-central-1"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
+    }
+  ])
+}
 
 ##########################
 # ECS Services
 ##########################
-# оставляем как есть
-# ...
+
+resource "aws_ecs_service" "skynet_bot" {
+  name            = "skynet-qr-bot-service"
+  cluster         = aws_ecs_cluster.skynet.id
+  task_definition = aws_ecs_task_definition.skynet_bot.arn
+  desired_count   = 0
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.public.id]
+    security_groups  = [aws_security_group.ecs_tasks_public.id]
+    assign_public_ip = true
+  }
+
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+}
+
+resource "aws_ecs_service" "skynet_qr" {
+  name            = "skynet-qr-service"
+  cluster         = aws_ecs_cluster.skynet.id
+  task_definition = aws_ecs_task_definition.skynet_qr.arn
+  desired_count   = 0
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [aws_subnet.private.id, aws_subnet.private_b.id]
+    security_groups  = [aws_security_group.ecs_tasks_private.id]
+    assign_public_ip = false
+  }
+
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+}
 
 ##########################
 # VPC Endpoints для приватного доступа
@@ -273,14 +360,10 @@ resource "aws_vpc_endpoint" "cloudwatch_logs" {
 ##########################
 resource "aws_db_subnet_group" "skynet" {
   name       = "skynet-db-subnet-group"
-  subnet_ids = [
-    aws_subnet.private.id,
-    aws_subnet.private_b.id
-  ]
-
+  subnet_ids = [aws_subnet.private.id, aws_subnet.private_b.id]
   tags = { Name = "skynet-db-subnet-group" }
 }
-##
+
 resource "aws_db_instance" "skynet" {
   identifier             = "skynet-db"
   engine                 = "postgres"
@@ -288,9 +371,9 @@ resource "aws_db_instance" "skynet" {
   instance_class         = "db.t4g.micro"
   allocated_storage      = 20
   storage_type           = "gp2"
-  username               = var.db_user       # из Actions secrets
-  password               = var.db_password   # из Actions secrets
-  db_name                = var.db_name       # из Actions secrets
+  username               = var.db_user
+  password               = var.db_password
+  db_name                = var.db_name
   vpc_security_group_ids = [aws_security_group.rds.id]
   db_subnet_group_name   = aws_db_subnet_group.skynet.name
   skip_final_snapshot    = true
