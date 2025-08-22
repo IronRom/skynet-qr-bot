@@ -234,6 +234,37 @@ resource "aws_ecs_cluster" "skynet" {
 ##########################
 # IAM Roles
 ##########################
+resource "aws_iam_role_policy" "ecs_task_execution_ecr" {
+  name = "ecs-task-ecr-access"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "${aws_ecr_repository.skynet_bot.arn}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "${aws_ecr_repository.skynet_qr.arn}"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
   assume_role_policy = jsonencode({
