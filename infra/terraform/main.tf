@@ -386,11 +386,11 @@ resource "aws_ecs_service" "skynet_bot" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
-  network_configuration {
-    subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.ecs_tasks_public.id]
-    assign_public_ip = true
-  }
+network_configuration {
+  subnets          = [aws_subnet.public.id]
+  security_groups  = [aws_security_group.ecs_tasks_public.id]
+  assign_public_ip = true
+}
 
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
