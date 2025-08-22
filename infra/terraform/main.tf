@@ -299,7 +299,7 @@ resource "aws_ecs_service" "skynet_bot" {
   name            = "skynet-qr-bot-service"
   cluster         = aws_ecs_cluster.skynet.id
   task_definition = aws_ecs_task_definition.skynet_bot.arn
-  desired_count   = 0
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -316,7 +316,7 @@ resource "aws_ecs_service" "skynet_qr" {
   name            = "skynet-qr-service"
   cluster         = aws_ecs_cluster.skynet.id
   task_definition = aws_ecs_task_definition.skynet_qr.arn
-  desired_count   = 0
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
