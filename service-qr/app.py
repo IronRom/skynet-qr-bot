@@ -3,7 +3,7 @@ import qrcode
 import io
 
 app = FastAPI()
-##
+#
 @app.get("/generate")
 def generate_qr(data: str):
     buffer = io.BytesIO()
