@@ -45,7 +45,7 @@ resource "aws_secretsmanager_secret_version" "service_qr_url_version" {
 # ECR Repositories
 ##########################
 resource "aws_ecr_repository" "skynet_bot" {
-  name                 = "skynet-bot"
+  name                 = "skynet-qr-bot"
   image_tag_mutability = "MUTABLE"
   image_scanning_configuration {
     scan_on_push = true
