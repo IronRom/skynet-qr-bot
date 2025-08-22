@@ -38,6 +38,6 @@ jobs:
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
-            --cluster skynet-qr-bot-cluster \
-            --service skynet-qr-bot-service \
+            --cluster skynet-cluster \
+            --service skynet-qr-service \
             --force-new-deployment
