@@ -113,6 +113,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   vpc_endpoint_type = "Interface"
   subnet_ids        = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
+  private_dns_enabled = true
 }
 
 resource "aws_vpc_endpoint" "ecr_dkr" {
@@ -121,6 +122,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_endpoint_type = "Interface"
   subnet_ids        = [aws_subnet.private.id, aws_subnet.private_b.id]
   security_group_ids = [aws_security_group.ecs_tasks_private.id]
+  private_dns_enabled = true
 }
 
 ##########################
